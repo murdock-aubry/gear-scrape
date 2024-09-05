@@ -34,5 +34,4 @@ if __name__ == "__main__":
     original_directory = "./gear_dxf"
     clean_directory = "./gear_dxf_clean"
 
-
     line_reduction_rate(original_directory, clean_directory)
