@@ -14,12 +14,12 @@ remove = [ # what not to consider in the prompt.
             "info"
         ]
 
-def prepare_data(file_path, frac_remove = 0.2):
+def prepare_data(file_path, frac_remove = 0.2, prompted = False):
     with open(file_path, 'r') as file:
         data = json.load(file)
 
     ngears = len(data)
-    data_organized = []
+    data_organized = {}
 
     for igear in range(ngears):
 
@@ -28,30 +28,53 @@ def prepare_data(file_path, frac_remove = 0.2):
         keys = data[igear].keys() - remove
         keys = remove_and_random_resort(keys, frac_remove) # filter and sort
 
-        context = "Generate a DXF file for a gear which conforms to the following description: "
-        final = " Ensure that the output can be directly fed to CAD software."
-        prompt = context
-        for ikey, key in enumerate(keys):
-            if ikey == len(keys) - 1:
-                prompt += key + ": " + data[igear][key] + "."
-            else:
-                prompt += key + ": " + data[igear][key] + ", "
 
-        prompt += final 
-        new_gear["prompt"] = prompt
-        
+
+        gear_type = data[igear]["Type"]
+
+        if gear_type not in data_organized:
+            data_organized[gear_type] = []
+
+
+        if prompted:
+            context = "Generate a DXF file for a gear which conforms to the following description: "
+            # final = " Ensure that the output can be directly fed to CAD software."
+
+            for ikey, key in enumerate(keys):
+                if ikey == len(keys) - 1:
+                    prompt += key + ": " + data[igear][key] + "."
+                else:
+                    prompt += key + ": " + data[igear][key] + ", "
+
+            # prompt += final 
+
+            new_gear["prompt"] = prompt
+        else: 
+            new_gear["prompt"] = {}
+            for key in keys:
+                new_gear["prompt"][key] = data[igear][key]
+
 
         file_path_dxf = data[igear]["DXF path"] + ".dxf"
+
         try: 
             dxf_text = read_dxf_file(file_path_dxf)
+            dxf_text = compress_dxf_text(dxf_text)
+
             new_gear["dxf_content"] = dxf_text
-            data_organized.append(new_gear)
+            data_organized[gear_type].append(new_gear)
         except Exception:
             print("No DXF file for catalog ", data[igear]["Catalog Number"])
+
 
     return data_organized
 
 
+def compress_dxf_text(dxf_text):
+    # Split into lines and filter out empty lines
+    lines = [line.strip() for line in dxf_text.split('\n') if line.strip()]
+    # Join with single spaces
+    return ' '.join(lines)
 
 def remove_and_random_resort(arr, removal_fraction=0.2):
     
@@ -92,7 +115,7 @@ if __name__ == "__main__":
 
     data_organized = prepare_data(file_path, 0.0)
 
-    train_data_path = "train_data.json"
+    train_data_path = "train_data_unprompted.json"
 
     with open(train_data_path, 'w') as json_file:
         json.dump(data_organized, json_file, indent=4)
